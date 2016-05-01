@@ -1,7 +1,7 @@
 NAME
 ====
 
-nginx-systemtap-toolkit - Real-time analyzing and diagnosing tools for Nginx based on [SystemTap](http://sourceware.org/systemtap/wiki)
+nginx-systemtap-toolkit - 基于 [SystemTap](http://sourceware.org/systemtap/wiki) 为 NGINX 打造的实时分析和诊断工具集
 
 Table of Contents
 =================
@@ -52,44 +52,35 @@ Table of Contents
 * [Copyright & License](#copyright--license)
 * [See Also](#see-also)
 
-Status
+状态
 ======
+这些脚本可以用在生产环境。
 
-These scripts are considered production-ready.
-
-Prerequisites
+前提条件
 =============
 
-You need at least systemtap 2.1+ and perl 5.6.1+ on your Linux system. For building latest systemtap from source, please refer to this document: http://openresty.org/#BuildSystemtap
+你的 Linux 系统需要 systemtap 2.1+ 和 perl 5.6.1+ 及以上的版本。如果要从源码编译最新版本的 systemtap，你可以参考这个文档：http://openresty.org/#BuildSystemtap
 
-Also, you should ensure the (DWARF) debuginfo for your Nginx (and other dependencies) is already enabled (or installed separately)
-if you did not compile your Nginx from source.
+另外，如果你不是从源码编译的 NGINX，你需要保证你的 NGINX 和其他依赖组件的 （DWARF）调试信息已经打开了（或者单独安装了）。
 
-Finally, you need to install the kernel debug symbols and kernel headers as well. Usually you just need the `kernel-devel` and `kernel-debuginfo` packages (matching your current `kernel` package) from your Linux distributions, respectively.
+最后，你也需要安装 kernel debug symbols 和 kernel headers。通常只用在你的 Linux 系统中，安装和 `kernel` 包匹配的 `kernel-devel` 和 `kernel-debuginfo` 就可以了。
 
-For old Linux systems
+对于旧的 Linux 系统
 ---------------------
+如果你的 Linux 内核版本低于 3.5，那么你可能需要给内核打上这个补丁（如果你之前没有打的话）：[utrace  patch](http://sourceware.org/systemtap/wiki/utrace)，这样才能让你的 systemtap 安装得到用户空间追踪的支持。但是如果你使用的是 RedHat 系列的 Linux 发行版本（比如RHEL, CentOS 和 Fedora），那么旧的内核也应该已经安装了 utrace 这个补丁。
 
-If you are on Linux kernels older than 3.5, then you may have to apply the [utrace patch](http://sourceware.org/systemtap/wiki/utrace) (if not yet) to your kernel to get
-user-space tracing support for your systemtap installation. But if you are using Linux distributions in the RedHat family (like RHEL, CentOS, and Fedora), then your old kernel should already has the utrace patch applied.
-
-The mainstream Linux kernel 3.5+ does have support for the uprobes API for userspace tracing.
+3.5+ 的主流 Linux 内核，都会有探针 API 的支持，以便对用户空间进行追踪。
 
 [Back to TOC](#table-of-contents)
 
-Permissions
+权限
 ===========
-
-Running systemtap-based tools requires special user permissions. To prevent running
-these tools with the root account,
-you can add your own (non-root) account name to the `stapusr` and `staprun` user groups.
-But if the user account running the Nginx process is different from your current
-user account, then you will still be required to run "sudo" or other means to run these tools
-with root access.
+运行基于 systemtap 的工具集需要特别的用户权限。为了避免用 root 用户运行这些工具集，你可以把自己的用户名（非 root 用户），加入到 `stapusr` 和 `staprun` 用户组中。
+但是如果你自己的账户名和 正在运行 NGINX 进程的账户名不同，那么你还是需要运行 "sudo" 或者其他同样效果的命令，让这些工具集带有 root 访问权限的运行起来。
 
 [Back to TOC](#table-of-contents)
 
-Tools
+工具集
 =====
 
 [Back to TOC](#table-of-contents)
@@ -97,12 +88,11 @@ Tools
 ngx-active-reqs
 ---------------
 
-This tool lists detailed information about all the active requests that
-are currently being processed by the specified Nginx worker or master process. When the master process pid is specified, all its worker processes will be monitored.
+这个工具会列出来指定的 NGINX worker 或者 master 进程正在处理的所有活跃请求的详细信息。
+当指定为 master 进程的 pid 时，它所有的 worker 进程都会被监控。
 
-Here is an example:
-
-    # assuming the nginx worker pid is 32027
+这里有一个例子：
+    # 假设 NGINX worker 的 pid 是 32027
 
     $ ./ngx-active-reqs -p 32027
     Tracing 32027 (/opt/nginx/sbin/nginx)...
@@ -121,11 +111,10 @@ Here is an example:
     found 10 active requests.
     212 microseconds elapsed in the probe handler.
 
-The `time` field is the elapsed time (in seconds) since the current request started.
-The `conn reqs` field lists the requests that have been processed on the current (keep-alive) downstream connection.
-The `fd` field is the file descriptor ID for the current downstream connection.
-
-The `-m` option will tell this tool to analyze the request memory pools for each active request:
+`time` 字段是当前请求从开始到现在的时间（单位是秒）。
+`conn reqs` 字段列出来当前（keep-alive）下游连接已经处理的请求数。
+`fd` 字段是当前下游连接的文件描述符 ID。
+`-m` 选型会让这个工具去分析每一个活跃请求的请求内存池：
 
     $ ./ngx-active-reqs -p 12141 -m
     Tracing 12141 (/opt/nginx/sbin/nginx)...
@@ -151,18 +140,17 @@ The `-m` option will tell this tool to analyze the request memory pools for each
     total memory used for all 3 active requests: 9312 bytes
     274 microseconds elapsed in the probe handler.
 
-For Nginx servers that are not busy enough, it is handy to specify the Nginx master process pid as the `-p` option value.
-Another useful option is `-k`, which will keep probing when there's no active requests found in the current event cycle.
+对于并不十分忙碌的 NGINX 服务器，可以用 `-p` 选项值，方便的指定 NGINX 的 master 进程 pid。
+另外一个有用的选项是 `-k`，它会在当前事件循环中没有活跃请求的时候，一直保持探测。
 
 [Back to TOC](#table-of-contents)
 
 ngx-req-distr
 -------------
 
-This tool analyzes the (downstream) request and connection distributions
-among all the nginx worker processes for the specified nginx master process.
+这个工具分析（下游）请求和连接，在指定的 NGINX master 进程的所有 NGINX worker 进程中的分布。
 
-    # here the nginx master pid is stored in the pid file
+    # NGINX master 进程的 pid 存放在这个 pid 文件中
     #   /opt/nginx/logs/nginx.pid
 
     $ ./ngx-req-distr -m `cat /opt/nginx/logs/nginx.pid`
@@ -196,16 +184,16 @@ among all the nginx worker processes for the specified nginx master process.
 ngx-shm
 -------
 
-This tool analyzes all the shared memory zones in the specified running nginx process.
+这个工具分析在指定的正在运行的 NGINX 进程中，所有的共享内存区域。
 
-    # you should ensure the worker is still handling requests
-    # otherwise the timer_resoluation must be set in your nginx.conf
+    # 你需要确保指定的 worker 仍然在处理请求
+    # 否则必须在你的 nginx.conf 里面设置 timer_resoluation
 
-    # assuming the nginx worker pid is 15218
+    # 假设 NGINX worker 的 pid 是 15218
 
     $ cd /path/to/nginx-systemtap-toolkit/
 
-    # list the zones
+    # 列出内存区域
     $ ./ngx-shm -p 15218
     Tracing 15218 (/opt/nginx/sbin/nginx)...
 
@@ -244,16 +232,15 @@ This tool analyzes all the shared memory zones in the specified running nginx pr
 ngx-cycle-pool
 --------------
 
-This tool computes the real-time memory usage of the nginx global "cycle pool"
-in the specified nginx (worker) process.
+这个工具计算在指定的 NGINX （worker）进程内，NGINX 全局 "cycle pool" 的内存占用。
 
-The "cycle pool" is mainly for configuration related data block allocation and other long-lived
-data blocks with a lifetime as long as the nginx server configuration (like the compiled PCRE data stored in the regex cache for the ngx_lua module).
+"cycle pool" 主要是提供给配置相关的数据块分配，以及 NGINX 服务器配置生命周期中其他长期使用的数据块
+（比如为 ngx_lua 模块，而存储在正则表达式缓存中编译好的 PCRE 数据）。
 
-    # you should ensure the worker is handling requests
-    # or the timer_resoluation is set in your nginx.conf
+    # 你需要确保 worker 正在处理请求
+    # 或者 nginx.conf 里面设置了 timer_resoluation
 
-    # assuming the nginx worker pid is 15004
+    # 假设 NGINX worker pid 是 15004
 
     $ ./ngx-cycle-pool -p 15004
     Tracing 15004 (/usr/local/nginx/sbin/nginx)...
@@ -265,25 +252,21 @@ data blocks with a lifetime as long as the nginx server configuration (like the 
 
     12 microseconds elapsed in the probe handler.
 
-The memory block size for the "large blocks" is approximated based on
-the intermal implementation of glibc's `malloc` on Linux. If you have replaced the `malloc` with other allocator,
-then this tool is very likely to quit with memory access errors
-or to give meaningless numbers for the "large blocks" total size
-(but even in such bad cases, SystemTap should not affect the nginx process being analyzed at all).
+"large blocks" 的内存块大小，近似以 Linux 上 glibc 的 `malloc` 初始化实现为基准。
+如果你用其他分配器取代了 `malloc`，然后这个工具很有可能内存访问错误而退出，
+或者给出一个毫无意义的 "large blocks" 总大小（但即使在这样恶劣的情况下，SystemTap 也不会对正在分析的 NGINX 进程有任何影响）。
 
 [Back to TOC](#table-of-contents)
 
 ngx-leaked-pools
 ----------------
 
-Tracks creations and destructions of Nginx memory pools and report the top 10 leaked pools'
-backtraces.
+跟踪 NGINX 内存池的创建和销毁，以及给出泄露池前 10 的调用栈。
 
-The backtraces are in the raw form of hexidecimal addresses.
-You can use the `ngx-backtrace` tool to print out the source
-code file names, source line numbers, as well as function names.
+调用栈是 16 进制地址的原始格式。
+可以使用 `ngx-backtrace` 工具打印出源代码文件名，源码所在行数以及函数名。
 
-    # assuming the nginx worker pid is 5043
+    # 假设 NGINX worker pid 是 5043
 
     $ ./ngx-leaked-pools -p 5043
     Tracing 5043 (/opt/nginx/sbin/nginx)...
@@ -314,18 +297,19 @@ code file names, source line numbers, as well as function names.
     ngx_http_handler
     src/http/ngx_http_core_module.c:872
 
-This script requires Nginx instances that have applied the latest dtrace patch. See the [nginx-dtrace](https://github.com/openresty/nginx-dtrace) project for more details.
+这个脚本需要 NGINX 实例已经打上最新的 dtrace 补丁。可以从 [nginx-dtrace](https://github.com/openresty/nginx-dtrace) 项目里获得更多细节。
 
-The bundle [OpenResty](http://openresty.org/) 1.2.3.3+ includes the right dtrace patch by default. And you just need to build it with the `--with-dtrace-probes` configure option.
+[OpenResty](http://openresty.org/) 1.2.3.3+ 版本的安装包，默认已经包含了正确的 dtrace 补丁。
+你只用在 build 的时候，加上 `--with-dtrace-probes` 这个配置选项。
 
 [Back to TOC](#table-of-contents)
 
 ngx-backtrace
 -------------
 
-Prints out a human readable form for the raw backtraces consisting of hexidecimal addresses generated by other tools like `ngx-leaked-pools`.
+从 `ngx-leaked-pools` 之类的工具生成的 16 进制地址的原始调用栈，转换为人类可读的格式。
 
-    # assuming the nginx worker process pid is 5043
+    # 假设 NGINX worker 进程 pid 是 5043
 
     $ ./ngx-backtrace -p 5043 0x4121aa 0x44d7bd 0x44e425 0x44fcc1 0x47996d 0x43908a 0x4342c3 0x4343bd
     ngx_create_pool
@@ -350,9 +334,8 @@ Prints out a human readable form for the raw backtraces consisting of hexidecima
 ngx-body-filters
 ----------------
 
-Print out all the output body filters in the order that they actually run.
-
-    # assuming the nginx worker process pid is 30132
+按照实际运行的顺序，打印出所有输出体过滤器。
+    # 假设 NGINX worker 进程 pid 是 30132
 
     $ ./ngx-body-filters -p 30132
     Tracing 30132 (/opt/nginx/sbin/nginx)...
@@ -377,7 +360,7 @@ Print out all the output body filters in the order that they actually run.
 ngx-header-filters
 ------------------
 
-Print out all the output header filters in the order that they actually run.
+按照实际运行的顺序，打印出所有输出头过滤器。
 
     $ ./ngx-header-filters -p 30132
     Tracing 30132 (/opt/nginx/sbin/nginx)...
@@ -401,11 +384,10 @@ Print out all the output header filters in the order that they actually run.
 ngx-pcrejit
 -----------
 
-This script tracks the PCRE compiled regex execution (i.e., the `pcre_exec` calls)
-in the specified Nginx worker process,
-and checks whether the compiled regexes being executed is JIT'd or not.
+这个脚本跟踪指定 NGINX worker 进程里面 PCRE 编译的正则表达式的执行（即 `pcre_exec` 的调用），
+并且检测它们是否被 JIT 执行。
 
-    # assuming the Nginx worker process handling the traffic is 31360.
+    # 假设正在处理请求的 NGINX worker 进程是 31360.
 
     $ ./ngx-pcrejit -p 31360
     Tracing 31360 (/opt/nginx/sbin/nginx)...
@@ -414,9 +396,9 @@ and checks whether the compiled regexes being executed is JIT'd or not.
     ngx_http_lua_ngx_re_match: 1000 of 2000 are PCRE JIT'd.
     ngx_http_regex_exec: 0 of 1000 are PCRE JIT'd.
 
-When statically linking PCRE with your Nginx, it is important to enable
-debug symbols in your PCRE compilation.
-That is, you should build your Nginx and PCRE like this:
+当 PCRE 是静态链接到你的 NGINX 时，记得在你的 PCRE 编译时打开调试符号。
+
+所以你应该这样子 build 你的 NGINX 和 PCRE：
 
     ./configure --with-pcre=/path/to/my/pcre-8.31 \
         --with-pcre-jit \
@@ -425,28 +407,24 @@ That is, you should build your Nginx and PCRE like this:
     make -j8
     make install
 
-For dynamically-linked PCRE, you are still need
-to install the debug symbols for your PCRE (or the debuginfo RPM package for Yum-based systems).
+对于动态链接 PCRE 的情况，你仍然需要为 PCRE 安装调试符号（或者是 debuginfo RPM 包，对于基于 Yum 的系统）。
 
 [Back to TOC](#table-of-contents)
 
 ngx-sample-bt
 -------------
 
-This tool has been renamed to [sample-bt](#sample-bt) because this tool is not specific to Nginx
-in any way and it makes no sense to keep the `ngx-` prefix in its name.
+这个工具已经被重命名为 [sample-bt](#sample-bt)，因为这个工具并不只针对 NGINX，所以保留 `ngx-` 这个前缀没有什么意义。
 
 [Back to TOC](#table-of-contents)
 
 sample-bt
 ---------
 
-This script can be used to sample backtraces in either user space or kernel space
-or both for *any* user process that you specify (yes, not just Nginx!).
-It outputs the aggregated backtraces (by count).
+这个脚本可以对你指定的 *任意* 用户进程（没错，不仅仅是 NGINX！）进行调用栈的采样。调用栈可以是用户空间，可以是内核空间，或者是两者兼得。
+它的输出是汇总后的调用栈（按照总数）。
 
-For example, to sample a running Nginx worker process (whose pid is 8736) in user space
-only for total 5 seconds:
+例如，采样一个正在运行的 NGINX worker 进程（pid 是 8736）的用户空间 5 秒钟：
 
     $ ./sample-bt -p 8736 -t 5 -u > a.bt
     WARNING: Tracing 8736 (/opt/nginx/sbin/nginx) in user-space only...
@@ -454,38 +432,37 @@ only for total 5 seconds:
     WARNING: Time's up. Quitting now...(it may take a while)
     WARNING: Number of errors: 0, skipped probes: 24
 
-The resulting output file `a.bt` can then be used to generate a Flame Graph by using Brendan Gregg's [FlameGraph tools](https://github.com/brendangregg/FlameGraph):
+结果的输出文件 `a.bt` 可以使用 Brendan Gregg 的 [FlameGraph 工具集](https://github.com/brendangregg/FlameGraph) 来生成火焰图:
 
     stackcollapse-stap.pl a.bt > a.cbt
     flamegraph.pl a.cbt > a.svg
 
-where both the `stackcollapse-stap.pl` and `flamegraph.pl` are from the FlameGraph toolkit.
-If everything goes right, you can now use your web browser to open the `a.svg` file.
+这里的 `stackcollapse-stap.pl` 和 `flamegraph.pl` 都来自 FlameGraph 工具集。
+如果一切顺利，你可以用你的浏览器打开这个 `a.svg` 文件。
 
-A sample flame graph for user-space-only sampling can be seen here (please open the link with a modern web browser that supports SVG rendering):
+这里有一个采样用户空间的火焰图示例（请用一个支持 SVG 渲染的现代浏览器打开这个链接）:
 
 http://agentzh.org/misc/nginx/user-flamegraph.svg
 
-For more information on the Flame Graph thing, please check out Brendan Gregg's blog posts below:
+想获得更多火焰图相关的信息，可以看下 Brendan Gregg 的这些博客:
 
 * [Flame Graphs](http://dtrace.org/blogs/brendan/2011/12/16/flame-graphs/)
 * [Linux Kernel Performance: Flame Graphs](http://dtrace.org/blogs/brendan/2012/03/17/linux-kernel-performance-flame-graphs/)
 
-You can also sample the backtraces in the kernel-space by specifying the `-k` option, as in
+你也可以指定 `-k` 选项，来采样内核空间的调用栈，比如
 
     $ ./sample-bt -p 8736 -t 5 -k > a.bt
     WARNING: Tracing 8736 (/opt/nginx/sbin/nginx) in kernel-space only...
     WARNING: Missing unwind data for module, rerun with 'stap -d stap_bf5516bdbf2beba886507025110994e_11738'
     WARNING: Time's up. Quitting now...(it may take a while)
 
-Only the kernel-space code in the context of the specified nginx worker process
-will be sampled.
+只有指定的 NGINX worker 进程的内核空间代码会被采样。
 
-A sample flame graph for kernel-space-only sample can be seen here:
+一个只有内核空间采样的火焰图示例在这里:
 
 http://agentzh.org/misc/nginx/kernel-flamegraph.svg
 
-You can also sample in both the user space and kernel space by specifying the `-k` and `-u` options at the same time, as in
+你也可以指定 `-k` 和 `-u` 选项，来同时采样用户空间和内核空间，比如
 
     $ ./sample-bt -p 8736 -t 5 -uk > a.bt
     WARNING: Tracing 8736 (/opt/nginx/sbin/nginx) in both user-space and kernel-space...
@@ -494,38 +471,38 @@ You can also sample in both the user space and kernel space by specifying the `-
     WARNING: Number of errors: 0, skipped probes: 38
     WARNING: There were 73 transport failures.
 
-A sample flame graph for kenerl-and-user-space sampling can be seen here:
+一个用户和内核空间采样的火焰图示例在这里:
 
 http://agentzh.org/misc/nginx/user-kernel-flamegraph.svg
 
-In fact, this script is general enough and can be used to sample user processes other than Nginx.
+实际上，这个脚本非常通用，也可以采样 NGINX 之外的其他用户进程。
 
-The overhead exposed on the target process is usually small. For example, the throughput (req/sec) limit of an nginx worker process doing simplest "hello world" requests drops by only 11% (only when this tool is running), as measured by `ab -k -c2 -n100000` when using Linux kernel 3.6.10 and systemtap 2.5. The impact on full-fledged production processes is usually smaller than even that, for instance, only 6% drop in the throughput limit is observed in a production-level Lua CDN application.
+它对目标进程的开销通常比较小。比如，在 Linux 内核 3.6.10 和 systemtap 2.5 的环境中，使用 `ab -k -c2 -n100000` 来进行测试，NGINX worker 进程处理最简单的 "hello world" 请求，吞吐量（req/sec）只下降了 11%（只有这个工具运行时）。对于非常成熟的生产环境的程序来说，这个影响会更小。比如在一个生产水平的 Lua CDN 应用中，只观察到 6% 的吞吐量下降。
 
 [Back to TOC](#table-of-contents)
 
 ngx-sample-lua-bt
 -----------------
 
-*WARNING* This tool can only work with interpreted Lua code and has various limitations. For
-LuaJIT 2.1, it is recommended to use the new [ngx-lj-lua-stacks](https://github.com/openresty/stapxx#ngx-lj-lua-stacks)
-tool for sampling both interpreted and/or compiled Lua code.
+*警告* 这个工具只能和解释后的 Lua 代码工作，并且有很多的限制。
+对于 LuaJIT 2.1，推荐使用新的 [ngx-lj-lua-stacks](https://github.com/openresty/stapxx#ngx-lj-lua-stacks) 工具来采样解释后 和/或 编译后的 Lua 代码。
 
-Similar to the [sample-bt](#sample-bt) script, but samples the Lua language level backtraces.
+和 [sample-bt](#sample-bt) 这个脚本类似, 不过采样的是 Lua 语言级别的调用栈。
 
-Specify the `--lua51` option when you're using the standard Lua 5.1 interpreter in your Nginx build, or `--luajit20` if LuaJIT 2.0 is used instead.
+当你在 NGINX 里面使用标准的 Lua 5.1 解释器时，需要指定 `--lua51` 选项；如果用的是 LuaJIT 2.0 就指定 `--luajit20`。
 
-You need to enable or install the debug symbols for your Lua library, in addition to your Nginx executable.
+除了 NGINX 可执行文件之外，你还需要为 Lua 库打开或者安装调试符号。
 
-Also, you should not omit frame pointers while building your Lua library.
+同时，在 build 你的 Lua 库的时候，不要忽略帧指针（frame pointers）。
 
-If LuaJIT 2.0 is used, you need to build your LuaJIT 2.0 library like this:
+如果使用的是 LuaJIT 2.0, 你需要这样去 build LuaJIT 2.0 库:
 
     make CCDEBUG=-g
 
-The Lua backtraces generated by this script use Lua source file name and source line number where the Lua function is defined. So to get more meaningful backtraces, you can call the `fix-lua-bt` script to process the output of this script.
+这个脚本生成的 Lua 调用栈，在 Lua 函数定义的地方会使用 Lua 代码源文件名和所在行数。
+所以为了获得更有意义的调用信息，你可以调用 `fix-lua-bt` 脚本去处理 `ngx-sample-lua-bt` 的输出。
 
-Here is an example for standard Lua 5.1 interpreter embedded Nginx:
+这里有一个例子，NGINX 使用的是标准 Lua 5.1 解释器：
 
     # sample at 1K Hz for 5 seconds, assuming the Nginx worker
     #   or master process pid is 9766.
@@ -535,7 +512,7 @@ Here is an example for standard Lua 5.1 interpreter embedded Nginx:
 
     $ ./fix-lua-bt tmp.bt > a.bt
 
-Or if LuaJIT 2.0 is used:
+如果使用的是 LuaJIT 2.0:
 
     # sample at 1K Hz for 5 seconds, assuming the Nginx worker
     #   or master process pid is 9768.
@@ -545,23 +522,24 @@ Or if LuaJIT 2.0 is used:
 
     $ ./fix-lua-bt tmp.bt > a.bt
 
-The resulting output file `a.bt` can then be used to generate a Flame Graph by using Brendan Gregg's [FlameGraph tools](https://github.com/brendangregg/FlameGraph):
+得到的输出文件 `a.bt`，可以用 Brendan Gregg 的 [FlameGraph 工具集](https://github.com/brendangregg/FlameGraph) 来生成火焰图:
 
     stackcollapse-stap.pl a.bt > a.cbt
     flamegraph.pl a.cbt > a.svg
 
-where both the `stackcollapse-stap.pl` and `flamegraph.pl` are from the FlameGraph toolkit.
-If everything goes right, you can now use your web browser to open the `a.svg` file.
+ `stackcollapse-stap.pl` 和 `flamegraph.pl` 都来自 FlameGraph 工具集。
+ 如果一切顺利，你可以用浏览器打开 `a.svg` 这个文件。
 
-A sample flame graph for user-space-only sampling can be seen here (please open the link with a modern web browser that supports SVG rendering):
+这里有一个采样用户空间的火焰图示例（请用一个支持 SVG 渲染的现代浏览器打开这个链接）:
 
 http://agentzh.org/misc/flamegraph/lua51-resty-mysql.svg
 
-For more information on the Flame Graph thing, please check out Brendan Gregg's blog posts below:
+想获得更多火焰图相关的信息，可以看下 Brendan Gregg 的这些博客:
 
 * [Flame Graphs](http://dtrace.org/blogs/brendan/2011/12/16/flame-graphs/)
 * [Linux Kernel Performance: Flame Graphs](http://dtrace.org/blogs/brendan/2012/03/17/linux-kernel-performance-flame-graphs/)
 
+如果用 `-t` 选项指定了 NGINX master 进程的 pid，那这个工具会同时自动探测它所有的 worker 进程。
 If the pid of the Nginx master proces is specified as the `-t` option value,
 then this tool will automatically probe all its worker processes at the same time.
 
@@ -570,10 +548,9 @@ then this tool will automatically probe all its worker processes at the same tim
 fix-lua-bt
 ----------
 
-Fixes the raw Lua backtraces generated by the `ngx-sample-lua-bt` script and makes it more readable.
+让 `ngx-sample-lua-bt` 生成的原始调用栈更有可读性。
 
-
-The original backtraces generated by `ngx-sample-lua-bt` looks like this:
+`ngx-sample-lua-bt` 生成的原始调用栈看上去是这样子的:
 
     C:0x7fe9faf52dd0
     @/home/agentzh/git/lua-resty-mysql/lib/resty/mysql.lua:65
@@ -581,7 +558,7 @@ The original backtraces generated by `ngx-sample-lua-bt` looks like this:
     @/home/agentzh/git/lua-resty-mysql/lib/resty/mysql.lua:418
     @/home/agentzh/git/lua-resty-mysql/lib/resty/mysql.lua:711
 
-And after being processed by this script, we get
+这个脚本处理过之后，我们看到的是
 
     C:0x7fe9faf52dd0
     resty.mysql:_get_byte3
@@ -589,25 +566,24 @@ And after being processed by this script, we get
     resty.mysql:_recv_field_packet
     resty.mysql:read_result
 
-Here's a sample command:
+这里有一个例子:
 
     ./fix-lua-bt tmp.bt > a.bt
 
-where the input file `tmp.bt` is generated by `ngx-sample-lua-bt` earlier.
+其中输入文件 `tmp.bt` 是之前 `ngx-sample-lua-bt` 生成的。
 
-See also `ngx-sample-lua-bt`.
+参考 `ngx-sample-lua-bt`。
 
 [Back to TOC](#table-of-contents)
 
 ngx-lua-bt
 ----------
 
-This tool dumps out the current Lua-land backtrace in the current running Nginx worker process.
+这个工具可以把 NGINX worker 进程中 Lua 的当前调用栈 dump 出来。
 
-This tool is very useful in locating the infinite Lua loop that keeps the Nginx worker
-spinning with 100% CPU usage.
+这个工具在定位 Lua 热循环引起的 NGINX worker 持续 100% CPU 占用问题的时候非常有效。
 
-If LuaJIT 2.0 is used, specify the --luajit20 option, like this:
+如果用的是 LuaJIT 2.0, 请指定 --luajit20 选项, 像这样:
 
     $ ./ngx-lua-bt -p 7599 --luajit20
     WARNING: Tracing 7599 (/opt/nginx/sbin/nginx) for LuaJIT 2.0...
@@ -615,7 +591,7 @@ If LuaJIT 2.0 is used, specify the --luajit20 option, like this:
     content_by_lua:2
     content_by_lua:1
 
-If the standard Lua 5.1 interpreter is used instead, specify the --lua51 option:
+如果用的是标准 Lua 5.1 解释器, 请指定 --lua51 选项:
 
     $ ./ngx-lua-bt -p 13611 --lua51
     WARNING: Tracing 13611 (/opt/nginx/sbin/nginx) for standard Lua 5.1...
@@ -629,23 +605,22 @@ If the standard Lua 5.1 interpreter is used instead, specify the --lua51 option:
 ngx-sample-bt-off-cpu
 ---------------------
 
-This tool has been renamed to [sample-bt-off-cpu](#sample-bt-off-cpu) because this tool is not specific to Nginx
-in any way and it makes no sense to keep the `ngx-` prefix in its name.
+这个工具已经重命名为 [sample-bt-off-cpu](#sample-bt-off-cpu)，因为这个工具并不只针对 NGINX，所以保留 `ngx-` 这个前缀没有什么意义。
 
 [Back to TOC](#table-of-contents)
 
 sample-bt-off-cpu
 -----------------
 
-Similar to [sample-bt](#sample-bt) but analyzes the off-CPU time for a particular user process (not only Nginx, but also any other applications).
+类似 [sample-bt](#sample-bt)，不过是用来分析某个用户进程 off-CPU time（不只是 NGINX，其他的应用也可以分析）。
 
-Why does off-CPU time matter? Check out Brendan Gregg's excellent blog post "Off-CPU Performance Analysis" for details:
+为什么 off-CPU time 这么重要? 可以从 Brendan Gregg 这篇非常棒的博客 "Off-CPU Performance Analysis" 里面看到细节:
 
 http://dtrace.org/blogs/brendan/2011/07/08/off-cpu-performance-analysis/
 
-By default, this tool samples the userspace backtraces. And 1 (logical) sample of backtraces in the output corresponds to 1 microsecond of off-CPU time.
+这个工具默认是采样用户空间调用栈。 并且输出里面 1 个逻辑上的采样，对应 1 微秒的 off-CPU time。
 
-Here is an example to demonstrate this tool's usage:
+这里有个例子来演示这个工具的用法:
 
     # assuming the nginx worker process to be analyzed is 10901.
     $ ./sample-bt-off-cpu -p 10901 -t 5 > a.bt
@@ -654,23 +629,24 @@ Here is an example to demonstrate this tool's usage:
     WARNING: Time's up. Quitting now...(it may take a while)
     WARNING: Number of errors: 0, skipped probes: 23
 
-where the `-t 5` option makes the tool sample for 5 seconds.
+这里 `-t 5` 选项让工具采样 5 秒钟。
 
-The resulting `a.bt` file can be used to render Flame Graphs just as with [sample-bt](#sample-bt) and its other friends. And this type of flamegraphs can be called "off-CPU Flame Graphs" while the classic flamegraphs are essentially "on-CPU Flame Graphs".
+产生的 `a.bt` 文件， 就像 [sample-bt](#sample-bt) 以及其他脚本生成的文件一样，可以拿来生成火焰图。
+这个类型的火焰图叫做 "off-CPU Flame Graphs"，而经典的火焰图本质上是 "on-CPU Flame Graphs"。
 
-Below is such a "off-CPU flamegraph" for a loaded Nginx worker process accessing MySQL with the lua-resty-mysql library:
+下面是一个 "off-CPU 火焰图" 的例子， NGINX worker 进程正在用 lua-resty-mysql 访问 MySQL：
 
 http://agentzh.org/misc/flamegraph/off-cpu-lua-resty-mysql.svg
 
-By default, off-CPU time intervals shorter than 4 us (microseconds) are discarded. You can control this threshold via the `--min` option, as in
+默认的，off-CPU 时间间隔小于 4 us（微秒，*其实 us 代表的是 μs，代码里面不好敲，改为 us*）的会被丢弃，不显示出来。你可以用 `--min` 来修改这个阈值：
 
     $ ./sample-bt-off-cpu -p 12345 --min 10 -t 10
 
-where we ignore off-CPU time intervals shorter than 10 us and sample the user process with the pid 12345 for total 10 seconds.
+这个命令的意思是对 pid 为 12345 的用户进程进行一共 10 秒钟的采样，并且忽略 off-CPU 时间间隔小于 10 微秒的采样。
 
-The `-l` option can be control the upper limit of different backtraces to be outputed. By default, the hottest 1024 different backtraces are dumped.
+`-l` 选项可以控制导出不同调用栈的上限。默认情况下，会导出 1024 个不同的最热的调用栈。
 
-The `--distr` option can be specified to print out a base-2 logarithmic histogram for all the off-CPU time intervals (larger than the threshold specified by the `--min` option). For example,
+`--distr` 选项可以指定为所有比 `--min` 这个阈值大的 off-CPU 时间间隔，打印出一个以2为底数的对数柱状图。比如，
 
     $ ./sample-bt-off-cpu -p 10901 -t 3 --distr --min=1
     WARNING: Tracing 10901 (/opt/nginx/sbin/nginx)...
@@ -693,106 +669,105 @@ The `--distr` option can be specified to print out a base-2 logarithmic histogra
      2048 |                                                     0
      4096 |                                                     0
 
-Here we can see that most of the samples (for total 259 samples) fall in the off-CPU time interval range `[4us, 8us)`. And the largest off-CPU time interval is 1739us, i.e., 1.739ms.
+通过这个图，我们可以看到大部分采样都落在 `[4us, 8us)` 的 off-CPU 时间间隔范围内。最大的 off-CPU 时间间隔是 1739 微秒，也就是 1.739 毫秒。
 
-You can specify the `-k` option to sample the kernel space backtraces instead of sampling userland backtraces. If you want to sample both the userland and kernelspace, then you can specify both the `-k` and `-u` options.
+你可以指定 `-k` 选项来采样内核空间的调用栈，而不是采样用户空间调用栈。如果你两个都想采样，你可以把 `-k` 和 `-u` 这两个选项都加上。
 
 [Back to TOC](#table-of-contents)
 
 ngx-sample-bt-vfs
 -----------------
 
-This tool has been renamed to [sample-bt-vfs](#sample-bt-vfs) because this tool is not specific to Nginx
-in any way and it makes no sense to keep the `ngx-` prefix in its name.
+这个工具已经被重命名为 [sample-bt-vfs](#sample-bt-vfs)，因为这个工具并不只针对 NGINX，所以保留 `ngx-` 这个前缀没有什么意义。
 
 [Back to TOC](#table-of-contents)
 
 sample-bt-vfs
 -------------
 
-Similar to [sample-bt](#sample-bt) but samples the userspace backtraces on the Virtual File System (VFS) level for rendering File I/O Flame Graphs, which can show exactly how file I/O data volumn or file I/O latency is distributed among different userspace code paths within any running user process.
+类似 [sample-bt](#sample-bt)，但是这个工具是在虚拟文件系统（VFS）之上采样用户空间调用栈，以便渲染出文件 I/O 火焰图，这个火焰图可以准确的反映出在任意正在运行的用户进程中，文件 I/O 数据量或者文件 I/O 延迟在不同的用户空间代码路径的分布。
 
-By default, 1 sample of backtrace corresponds of 1 byte of data volumn (read or written). And by default, both `vfs_read` and `vfs_write` are tracked. For example,
+默认的，一个调用栈的采用对应的是一个字节的数据量（读或者写）。默认情况下，`vfs_read` 和 `vfs_write` 都会被追踪。比如，
 
     $ ./sample-bt-vfs -p 12345 -t 3 > a.bt
     WARNING: Tracing 20636 (/opt/nginx/sbin/nginx)...
     WARNING: Time's up. Quitting now...(it may take a while)
     WARNING: Number of errors: 0, skipped probes: 2
 
-We can then render a flamegraph for read/write VFS I/O like this:
+我们可以这样渲染出一个读/写 VFS I/O 火焰图：
 
     $ stackcollapse-stap.pl a.bt > a.cbt
     $ flamegraph.pl a.cbt > a.svg
 
-where the tools `stackcollapse-stap.pl` and `flamegraph.pl` are from Brendan Gregg's FlameGraph toolkit:
+这里的工具 `stackcollapse-stap.pl` 和 `flamegraph.pl` 都来自 Brendan Gregg 的 FlameGraph 工具集:
 
 https://github.com/brendangregg/FlameGraph
 
-One sample "file I/O flamegraph" is here:
+这里有一个 "文件 I/O 火焰图" 的例子:
 
 http://agentzh.org/misc/flamegraph/vfs-index-page-rw.svg
 
-This graph was rendered when the Nginx worker process is loaded by requests to its default index page (i.e., `/index.html`). We can see both the file writes in the standard access logging module and the file reads in the standard "static" module. The total sample space in this graph, 1481361, means for total 1481361 bytes of data actually read or written on VFS.
+这个火焰图呈现的是一个 NGINX worker 进程处理请求而加载默认的起始页面（即 `/index.html`）。我们可以看到在标准访问日志模块里面的文件写操作，以及在标准静态模块里面的文件读操作。
+这个火焰图里面所有的采样空间是 1481361，也就是说在 VFS 中一共有 1481361 个字节的实际读写数据。
 
-You can also track file reading only by specifying the `-r` option:
+你可以指定 `-r` 选项来只跟踪文件读操作：
 
     $ ./sample-bt-vfs -p 12345 -t 3 -r > a.bt
 
-Here is an example of "file reading flamegraph" by sampling a Nginx loaded by requests accessing its default index page:
+这里有一个 "文件读取操作火焰图" 的例子，是采样一个正在加载默认起始页面的 NGINX 进程：
 
 http://agentzh.org/misc/flamegraph/vfs-index-page-r.svg
 
-We can see that only the standard nginx "static" module is the only thing shown in the graph.
+我们看到火焰图里面呈现的只有标准的 NGINX "静态" 模块。
 
-Similarly, you can specify the `-w` option to track file writing only:
+类似的，你可以指定 `-w` 选项来只跟踪文件写操作：
 
 
     $ ./sample-bt-vfs -p 12345 -t 3 -w > a.bt
 
-Here is a sample "file writing flamegraph" for Nginx (with debugging logs enabled):
+这里有一个 NGINX(打开了调试日志) 的 "文件写操作火焰图":
 
 http://agentzh.org/misc/flamegraph/vfs-debug-log.svg
 
-And below is another example for "file writing flamegraphs" for Nginx with debugging logs turned off:
+下面是另外一个 "文件写操作火焰图"，NGINX 关闭了调试日志：
 
 http://agentzh.org/misc/flamegraph/vfs-access-log-only.svg
 
-We can see that only access logging appears in the graph.
+我们可以看到这里只有访问日志的写操作出现在火焰图中。
 
-Do not confuse file I/O here with disk I/O because we are only probing on the (high) Virtual File System level. So the system page cache can save many disk reads here.
+这里不要混淆了文件 I/O 和磁盘 I/O，因为我们仅仅在虚拟文件系统（VFS）这个（高）级别进行了探测。所以这里系统 page cache 可以节省很多磁盘读操作。
 
-Generally, we are more interested in the latency (i.e, time) spent on the VFS reads and writes. You can specify the `--latency` option to track kernel call latency instead of the data volumn:
+一般来说，我们对花费在 VFS 读写上面的延迟（比如，时间）更感兴趣。你可以指定 `--latency` 选项去跟踪内核调用延迟而不是数据量：
 
     $ ./sample-bt-vfs -p 12345 -t 3 --latency > a.bt
 
-In this case, 1 sample corresponds to 1 microsends of file I/O time (or to be more correct, the `vfs_read` or `vfs_write` calls' time).
+这个例子里面，1个采样相当于1毫秒的文件 I/O 时间（或者更准确的说，是 `vfs_read` 或者 `vfs_write` 的调用时间）。
 
-Here is an example for this:
+这里有一个对应的示例:
 
 http://agentzh.org/misc/flamegraph/vfs-latency-index-page-rw.svg
 
-The total samples shown in the graph, 1918669, indicate for total 1,918,669 microsends (or 1.9 seconds) were spent on both file reading and writing during the 3 seconds sampling interval.
+火焰图里面展示的一共有 1918669 个采样，意味着在 3 秒的取样间隔中，一共有 1,918,669 毫秒（也就是 1.9 秒）花在文件读写上面。
 
-One can also combine either the `-r` or `-w` option with the `--latency` option to filter out file reads or file writes.
+你也可以也 `--latency` 选项一起使用 `-r` 或者 `-w` 来筛选出文件读或者写操作。
 
-This tool can be used to inspect any user process (not only Nginx processes) with debug symbols enabled.
+这个工具可以用来检测带调试符号的任意用户进程（不仅仅是 NGINX 进程）。
 
 [Back to TOC](#table-of-contents)
 
 ngx-accessed-files
 ------------------
 
-This tool has been renamed to [accessed-files](#accessed-files) because this tool is not specific to Nginx
-in any way and it makes no sense to keep the `ngx-` prefix in its name.
+这个工具已经被重命名为 [accessed-files](#accessed-files)，因为这个工具并不只针对 NGINX，所以保留 `ngx-` 这个前缀没有什么意义。
 
 [Back to TOC](#table-of-contents)
 
 accessed-files
 --------------
 
-Find out the names of the files most frequently read from or written to in any user process (yes, not only nginx!) specified by the `-p` option.
+通过指定 `-p` 选项，找出来任意用户进程（对的，不限于 NGINX！）最常读写的文件名。
 
-The `-r` option can be specified to analyze files that are read from. For example,
+`-r` 选项可以指定去分析被读取的文件，比如,
 
     $ ./accessed-files -p 8823 -r
     Tracing 8823 (/opt/nginx/sbin/nginx)...
@@ -803,7 +778,7 @@ The `-r` option can be specified to analyze files that are read from. For exampl
     #2: 5 times, 75 bytes reads in file helloworld.html.
     #3: 2 times, 26 bytes reads in file a.html.
 
-And the `-w` option can be used to analyze files that are written to instead:
+`-w` 选项是指定分析被写入的文件：
 
     $ ./accessed-files -p 8823 -w
     Tracing 8823 (/opt/nginx/sbin/nginx)...
@@ -812,7 +787,7 @@ And the `-w` option can be used to analyze files that are written to instead:
     === Top 10 file writes ===
     #1: 17 times, 1600 bytes writes in file access.log.
 
-And you can specify both the `-r` and `-w` options:
+你可以同时指定 `-r` 和 `-w` 两个选项:
 
     $ ./accessed-files -p 8823 -w -r
     Tracing 8823 (/opt/nginx/sbin/nginx)...
@@ -824,7 +799,7 @@ And you can specify both the `-r` and `-w` options:
     #3: 5 times, 75 bytes reads/writes in file helloworld.html.
     #4: 2 times, 26 bytes reads/writes in file a.html.
 
-By default, hitting Ctrl-C will end the sampling process. And the `-t` option can be specified to control the sampling period by exact number of seconds, as in
+默认的，Ctrl-C 会终止对进程的采样。`-t` 选项指定准确的秒数来控制采样周期，比如，
 
     $ ./accessed-files -p 8823 -r -t 5
     Tracing 8823 (/opt/nginx/sbin/nginx)...
@@ -835,7 +810,7 @@ By default, hitting Ctrl-C will end the sampling process. And the `-t` option ca
     #2: 5 times, 75 bytes reads in file helloworld.html.
     #3: 2 times, 26 bytes reads in file a.html.
 
-By default, at most 10 different file names are printed out. You can control this upper limit by specifying the `-l` option. For instance,
+默认的，最多打印 10 个不同的文件名。你可以用 `-l` 选项控制这个阈值。比如，
 
     $ ./accessed-files -p 8823 -r -l 20
 
@@ -844,16 +819,14 @@ By default, at most 10 different file names are printed out. You can control thi
 ngx-pcre-stats
 --------------
 
-This tool can perform various statistical analysis of PCRE regex execution
-performance in a running Nginx worker process.
+这个工具会展示一个正在运行的 NGINX worker 进程中，PCRE 正则表达式执行效率的各类统计分析。
 
-This tool requires uretprobes support in the Linux kernel.
+这个工具需要 Linux 内核的 uretprobes 支持。
 
-Also, you need to ensure that debug symbols are enabled in your
-Nginx build, PCRE build, and LuaJIT build. For example, if you build PCRE from source with your Nginx or OpenResty by specifying the
-`--with-pcre=PATH` option, then you should also specify the `--with-pcre-opt=-g` option at the same time.
+同时你也需要确保 NGINX、PCRE 和 LuaJIT 在编译的时候，都已经开启了调试符号。
+比如你在 NGINX 或者 OpenResty 中通过源码编译 PCRE，你在指定 `--with-pcre=PATH` 选项的同时，也需要指定 `--with-pcre-opt=-g` 这个选项。
 
-Below is an example that analyzes the PCRE regex executation time distribution for a given Nginx worker process. Note that, the time is given in microseconds (`us`), i.e., 1e-6 seconds. The `--exec-time-dist` option is used here.
+下面的例子是分析指定 NGINX worker 进程中 PCRE 正则执行的时间分布。需要注意的是给出的时间是微秒（`us`）级别的，也就是 1e-6 秒。这里用了 `--exec-time-dist` 选项。
 
     $ ./ngx-pcre-stats -p 24528 --exec-time-dist
     Tracing 24528 (/opt/nginx/sbin/nginx)...
@@ -871,7 +844,7 @@ Below is an example that analyzes the PCRE regex executation time distribution f
       128 |                                                       0
       256 |                                                       0
 
-Also, you can specify the `--data-len-dist` option to analyze the distribution of the length of those subject string data being matched in individual runs.
+同样的你可以指定 `--data-len-dist` 选项，来分析在单个运行中匹配到的那些字符串数据长度的分布。
 
     $ ./ngx-pcre-stats -p 24528 --data-len-dist
     Tracing 24528 (/opt/nginx/sbin/nginx)...
@@ -892,7 +865,7 @@ Also, you can specify the `--data-len-dist` option to analyze the distribution o
      8192 |                                                       0
     16384 |                                                       0
 
-The `--worst-time-top` option can be specified to analyze the worst execution time of the individual regex matches using the ngx_lua module's [ngx.re API](http://wiki.nginx.org/HttpLuaModule#ngx.re.match):
+`--worst-time-top` 选项可以用来分析使用 ngx_lua 模块的 [ngx.re API](http://wiki.nginx.org/HttpLuaModule#ngx.re.match) 匹配到的各个正则的最差执行时间：
 
     $ ./ngx-pcre-stats -p 24528 --worst-time-top --luajit20
     Tracing 24528 (/opt/nginx/sbin/nginx)...
@@ -905,9 +878,9 @@ The `--worst-time-top` option can be specified to analyze the worst execution ti
     4. pattern "b": 29us (data size: 12)
     5. pattern "ello": 26us (data size: 5)
 
-Note that the time values given above are just for individual runs and are not accumulated.
+请注意，以上所给出的时间值仅为单个运行，且不累计。
 
-And the `--total-time-top` option is similar to `--worst-time-top`, but using accumulated regex execution time.
+`--total-time-top` 选项和 `--worst-time-top` 类似，但给出是正则执行时间的累计。
 
     $ ./ngx-pcre-stats -p 24528 --total-time-top --luajit20
     Tracing 24528 (/opt/nginx/sbin/nginx)...
@@ -920,9 +893,7 @@ And the `--total-time-top` option is similar to `--worst-time-top`, but using ac
     4. pattern "ello": 26241us (total data size: 15005)
     5. pattern "a": 26180us (total data size: 36012)
 
-The -t option can be used to specify the time period
-(in seconds) for sampling instead of requiring the user to
-hit Ctrl-C to end sampling:
+-t 选项可以指定采样的时间周期（以秒为单位），不再需要用户按 Ctrl-C 去停止采样：
 
     $ ./ngx-pcre-stats -p 8701 --total-time-top --luajit20 -t 5
     Tracing 8701 (/opt/nginx/sbin/nginx)...
@@ -935,29 +906,27 @@ hit Ctrl-C to end sampling:
     4. pattern "b": 19us (total data size: 12)
     5. pattern "a": 9us (total data size: 12)
 
-LuaJIT 2.1 is also supported when the `--luajit20` is specified (yeah, I know the option name is confusing).
+`--luajit20` 同时也支持 LuaJIT 2.1 (恩，这个名字确实会产生误解)。
 
 [Back to TOC](#table-of-contents)
 
 ngx-accept-queue
 ----------------
-
-This tool has been renamed to [tcp-accept-queue](#tcp-accept-queue) because this tool is not specific to Nginx
-in any way and it makes no sense to keep the `ngx-` prefix in its name.
+这个工具已经被重命名为 [tcp-accept-queue](#tcp-accept-queue)，因为这个工具并不只针对 NGINX，所以保留 `ngx-` 这个前缀没有什么意义。
 
 [Back to TOC](#table-of-contents)
 
 tcp-accept-queue
 ----------------
 
-This tool samples the SYN queue and ACK backlog queue for the sockets listening on the local port specified by the `--port` option
-for the time interval when it is running. It can work on any server processes even it is not Nginx.
+对于那些监听 `--port` 选项指定的本地端口的 socket，这个工具会采样它们的 SYN 队列和 ACK backlog 队列。
+它可以对任意服务器进程生效，不仅仅是 NGINX。
 
-This is a real-time sampling tool.
+这是一个实时采样工具。
 
-SYN queue or ACK backlog queue overflowing often results in connecting timeout errors on the client side.
+SYN 队列和 ACK backlog 队列的溢出经常会导致客户端侧的连接超时错误。
 
-By default, the tool prints out up to 10 queue overflow events and then quits immediately. For example:
+这个工具默认最多打印出 10 条队列溢出事件，然后就立即退出。举个例子：
 
     $ ./tcp-accept-queue --port=80
     WARNING: Tracing SYN & ACK backlog queue overflows on the listening port 80...
@@ -972,9 +941,9 @@ By default, the tool prints out up to 10 queue overflow events and then quits im
     [Tue May 14 12:29:15 2013 PDT] ACK backlog queue is overflown: 129 > 128
     [Tue May 14 12:29:15 2013 PDT] ACK backlog queue is overflown: 129 > 128
 
-From the output, we can see a lot of ACK backlog queue overflows happening when the tool is running. This means the corresponding SYN packets were dropped in the kernel.
+从输出中我们可以看到在工具运行期间，发生了很多 ACK backlog 队列的溢出。也就是对应的 SYN 包在内核里面被丢弃了。
 
-You can specify the `--limit` option to control the maximal number of issues reported:
+你可以指定 `--limit` 选项来控制事件报告数的阈值：
 
     $ ./tcp-accept-queue --port=80 --limit=3
     WARNING: Tracing SYN & ACK backlog queue overflows on the listening port 80...
@@ -982,10 +951,9 @@ You can specify the `--limit` option to control the maximal number of issues rep
     [Tue May 14 12:29:25 2013 PDT] ACK backlog queue is overflown: 129 > 128
     [Tue May 14 12:29:25 2013 PDT] ACK backlog queue is overflown: 129 > 128
 
-Or just hit Ctrl-C to end.
+或者直接 Ctrl-C 来结束。
 
-You can also specify the `--distr` option to make this tool just print out a histogram for the distribution
-of the queue lengths:
+你也可以指定 `--distr` 选项，来让这个工具打印出队列长度的柱状分布图：
 
     $ ./tcp-accept-queue --port=80 --distr
     WARNING: Tracing SYN & ACK backlog queue length distribution on the listening port 80...
@@ -1019,9 +987,9 @@ of the queue lengths:
       256 |                                                     0
       512 |                                                     0
 
-From the outputs, we can see that for 106 samples (i.e., 106 new connecting request), the SYN queue length remains 0; for 60 samples, the SYN queue is of the length 1; and for 84 samples, the queue size is within the interval [2, 4); and so on. We can see most of the samples have the SYN queue size 0 ~ 8.
+从上面的输出可以看到，有 106 个采样（也就是 106 个新的连接请求）的 SYN 队列长度为0；有 60 个采样的 SYN 队列长度为1；有 84 个采样的队列长度在 [2, 4)这个区间，其他也是类似的。我们可以看到绝大部分采样的 SYN 队列长度是 0 ~ 8。
 
-You need to hit Ctrl-C to make this tool print out the histgram when the `--distr` option is specified. Alternatively, you can specify the `--time` option to specify the exact number of seconds for real-time sampling:
+在指定了 `--distr` 选项时，你需要按键 Ctrl-C 来让这个工具打印出来柱状图。另外，你可以指定 `--time` 选项来指明实时采样的确切秒数：
 
     $ ./tcp-accept-queue --port=80 --distr --time=3
     WARNING: Tracing SYN & ACK backlog queue length distribution on the listening port 80...
@@ -1048,7 +1016,7 @@ You need to hit Ctrl-C to make this tool print out the histgram when the `--dist
       256 |                                                     0
       512 |                                                     0
 
-Even though the accept queue is not overflowing, long latency involved in accept queueing can also lead to client connecting timeout. The `--latency` option can be specified to analyze the accept queueing latency for a given listening port:
+即使 accept 队列没有溢出，涉及 accept 队列的长延迟也会导致终端连接超时。`--latency` 选项可以用来分析指定端口 accept 队列的延迟情况：
 
     $ ./tcp-accept-queue -port=80 --latency
     WARNING: Tracing accept queueing latency on the listening port 80...
@@ -1078,7 +1046,7 @@ Even though the accept queue is not overflowing, long latency involved in accept
     4194304 |                                                     0
     8388608 |                                                     0
 
-The `--time` option can also be specified to control the sampling time in seconds:
+`--time` 选项一样可以控制采样的秒数：
 
     $ ./tcp-accept-queue --port=80 --latency --time=5
     WARNING: Tracing accept queueing latency on the listening port 80...
@@ -1093,35 +1061,34 @@ The `--time` option can also be specified to control the sampling time in second
     4194304 |                                                    0
     8388608 |                                                    0
 
-This tool requires a Linux kernel compiled by gcc 4.5+ (preferrably gcc 4.7+) because gcc versions older than 4.5 generated incomplete DWARF debug info for C inlined functions. It is also recommended to enable DWARF format version 3 or above when compiling the kernel (by passing the `-gdwarf-3` or `-gdwarf-4` option to the `gcc` command line).
+这个工具需要用 gcc 4.5+（最好是 gcc 4.7+） 编译的 Linux 内核，因为 gcc 低于 4.5 的版本对 C 内联函数会生成不完整的 DWARF。同时在编译内核时，推荐启用 DWARF 3.0以上的格式（通过传给 `gcc` 命令行 `-gdwarf-3` 或者 `-gdwarf-4` 选项）。
 
 [Back to TOC](#table-of-contents)
 
 ngx-recv-queue
 --------------
 
-This tool has been renamed to [tcp-recv-queue](#tcp-recv-queue) because this tool is not specific to Nginx
-in any way and it makes no sense to keep the `ngx-` prefix in its name.
+这个工具已经被重命名为 [tcp-recv-queue](#tcp-recv-queue)，因为这个工具并不只针对 NGINX，所以保留 `ngx-` 这个前缀没有什么意义。
 
 [Back to TOC](#table-of-contents)
 
 tcp-recv-queue
 --------------
 
-This tool can analyze the queueing latency involved in the TCP receive queue.
+这个工具可以分析涉及 TCP receive 队列的排队延迟。
 
-The queueing latency defined here is the delay between the following two events:
+这里定义的排队延迟是以下两个事件之前的延迟：
 
-1. The first packet enteres the TCP receive queue since the last recvmsg() syscalls (and the like) initiated on the userland.
-2. The next recvmsg() syscall (and the like) that consumes the TCP receive queue.
+1. 上一次在用户空间发起的诸如 recvmsg() 之类的系统调用后，第一个包进入了 TCP receive 队列。
+2. 下一次诸如 recvmsg() 之类的系统调用消费了 TCP receive 队列。
 
-Large receive queueing lantencies often mean the user process is just too busy to consume the incoming requests, probably leading to timeout errors on the client side.
+大量 receive 排队延迟通常意味着用户进程忙于消费涌入的请求，可能会导致终端侧的超时错误。
 
-Zero-length data packets in the TCP receive queue (i.e., the FIN packets) are ignored by this tool.
+这个工具会忽略 TCP receive 队列中长度为 0 的数据包（即 FIN 包）。
 
-You are only required to specify the destination port number for the receiving packets via the `--dport` option.
+你只需要通过 `--dport` 选项来指明接收包的目的端口号。
 
-Here is an example for analyzing the MySQL server listening on the 3306 port:
+这里有一个例子，是分析监听 3306 端口的 MySQL 服务：
 
     $ ./tcp-recv-queue --dport=3306
     WARNING: Tracing the TCP receive queues for packets to the port 3306...
@@ -1140,9 +1107,9 @@ Here is an example for analyzing the MySQL server listening on the 3306 port:
        64 |                                                       0
       128 |                                                       0
 
-We can see that most of the latency times fall into the interval `[2us, 4us)`. And the worst latency is 42us.
+我们看到大部分的延迟时间分布在 `[2us, 4us)` 这个区间，最大的延迟是 42 微秒。
 
-You can also specify the exact sampling time interval (in seconds) via the `--time` option. For example, to analyze the Nginx server listening on the port 1984 for 5 seconds:
+你也可以用 `--time` 选项来指定采样的时间（单位是秒）。比如，对监听 1984 端口的 NGINX 服务分析 5 秒钟：
 
     $ ./tcp-recv-queue --dport=1984 --time=5
     WARNING: Tracing the TCP receive queues for packets to the port 1984...
@@ -1169,23 +1136,22 @@ You can also specify the exact sampling time interval (in seconds) via the `--ti
     16384 |                                                       0
     32768 |                                                       0
 
-Successfully tested on Linux kernel 3.7 and should work for other versions of kernel as well.
+在 Linux 内核 3.7 上面测试成功，其他版本的内核应该也可以工作。
 
-This tool requires a Linux kernel compiled by gcc 4.5+ (preferrably gcc 4.7+) because gcc versions older than 4.5 generated incomplete DWARF debug info for C inlined functions. It is also recommended to enable DWARF format version 3 or above when compiling the kernel (by passing the `-gdwarf-3` or `-gdwarf-4` option to the `gcc` command line).
+这个工具需要用 gcc 4.5+（最好是 gcc 4.7+） 编译的 Linux 内核，因为 gcc 低于 4.5 的版本对 C 内联函数会生成不完整的 DWARF。同时在编译内核时，推荐启用 DWARF 3.0以上的格式（通过传给 `gcc` 命令行 `-gdwarf-3` 或者 `-gdwarf-4` 选项）。
 
 [Back to TOC](#table-of-contents)
 
 ngx-lua-shdict
 --------------
+对于指定的正在运行的 NGINX 进程，这个工具可以分析它的共享内存字典并且追踪字典的操作。
 
-This tool analyzes shared memory dict and tracks dict operations in the specified running nginx process.
+你可以用 `-f` 选项指定 dict 和 key，来获取共享内存字典里面的数据。
+`--raw` 选项可以导出指定 key 的原始值。
 
-You can specify the `-f` option to fetch the data from the shared memory dict name by the specified dict and key.
-Specify the `--raw` option when you need dump the raw value of the given key.
+如果你编译 NGINX 时使用的是标准 Lua 5.1 解释器，就需要指定 `--lua51` 选项，如果是 LuaJIT 2.0 就是 `--luajit20`。当前只支持 LuaJIT。
 
-Specify the `--lua51` option when you're using the standard Lua 5.1 interpreter in your Nginx build, or `--luajit20` if LuaJIT 2.0 is used instead. Currently only LuaJIT is supported.
-
-Here's a sample command to fetch the data from the shared memory dict:
+这里有一个从共享内存字典中获取数据的命令行示例：
 
     # assuming the nginx worker pid is 5050
     $ ./ngx-lua-shdict -p 5050 -f --dict dogs --key Jim --luajit20
@@ -1198,7 +1164,7 @@ Here's a sample command to fetch the data from the shared memory dict:
 
     6 microseconds elapsed in the probe handler.
 
-Similarly, you can specify the `-w` option to track dict writes for the given key:
+类似的，你可以用 `-w` 选项来追踪指定 key 的字典写操作：
 
     $./ngx-lua-shdict -p 5050 -w --key Jim --luajit20
     Tracing 5050 (/opt/nginx/sbin/nginx)...
@@ -1209,18 +1175,18 @@ Similarly, you can specify the `-w` option to track dict writes for the given ke
     replace Jim exptime=4626322717216342016
     ^C
 
-If you don't specify `-f` or `-w`, this tool will fetch the data by default.
+如果 `-f` 和 `-w` 都没有指定, 这个工具默认会获取数据。
 
 [Back to TOC](#table-of-contents)
 
 ngx-lua-conn-pools
 ----------------
 
-Dumps connections pools status of [ngx_lua](http://wiki.nginx.org/HttpLuaModule), reports the number of both out-of-pool and in-pool connections, calculates connections reused times statistics of in-pool connections, and prints the capacity of each pool.
+导出 [ngx_lua](http://wiki.nginx.org/HttpLuaModule) 的连接池状态, 报告连接池内外的连接数, 统计连接池内连接的重用次数，并打印出每个连接池的容量。
 
-Specify the `--lua51` option when you're using the standard Lua 5.1 interpreter in your Nginx build, or `--luajit20` if LuaJIT 2.0 is used instead.
+如果你在编译 NGINX 时使用的是标准 Lua 5.1 解释器，需要指定 `--lua51` 选项，如果是 LuaJIT 2.0 就用 `--luajit20`。
 
-Here's a sample command:
+这里有一个命令行示例：
 
     # assuming the nginx worker pid is 19773
     $ ./ngx-lua-conn-pools -p 19773 --luajit20
@@ -1259,7 +1225,7 @@ Here's a sample command:
     For total 5 connection pool(s) found.
     324 microseconds elapsed in the probe handler.
 
-You can specify the `--distr` option to get the distribution of numbers of resued times:
+你可以指定 `--distr` 选项来获取重用次数的分布：
 
     $ ./ngx-lua-conn-pools -p 19773 --luajit20 --distr
     Tracing 15001 (/opt/nginx/sbin/nginx) for LuaJIT 2.0...
@@ -1286,17 +1252,17 @@ You can specify the `--distr` option to get the distribution of numbers of resue
 check-debug-info
 ----------------
 
-This tool checks which executable files do not contain debug info in any running process that you specify.
+对于指定的正在运行的进程，这个工具可以检测它里面哪些可执行文件没有包含调试信息。
 
-Basically, just run it like this:
+你可以这样子来运行：
 
     ./check-debug-info -p <pid>
 
-The executable file associated with the process and all the .so files already loaded by the process will be checked for dwarf info.
+这个进程关联到的可执行文件，以及这个进程已经加载的所有的 .so 文件，都会被检测 dwarf 信息。
 
-The process is not required to be nginx, but can be any user processes.
+这个进程不要求是 NGINX，它可以用于所有用户进程。
 
-Here is a complete example:
+这里是一个完整的例子：
 
     $ ./check-debug-info -p 26482
     File /usr/lib64/ld-2.15.so has no debug info embedded.
@@ -1307,17 +1273,17 @@ Here is a complete example:
     File /usr/lib64/libresolv-2.15.so has no debug info embedded.
     File /usr/lib64/librt-2.15.so has no debug info embedded.
 
-For now, this tool does not support separate .debug files yet.
+这个工具现在还不支持单独的 .debug 文件。
 
 [Back to TOC](#table-of-contents)
 
 ngx-phase-handlers
 ------------------
-This tool dumps all the handlers registered by all the nginx modules for every nginx running phase in the order they actually run.
+对于每一个 NGINX 运行阶段，这个工具会按照实际运行的顺序，导出在 NGINX 模块注册的所有 handler。
 
-This is very useful in debugging Nginx configuration issues caused by misinterpreting the running order of the Nginx configuration directives.
+对于误解 NGINX 配置指令执行顺序而引起的 NGINX 配置问题，这个工具在调试的时候非常有用。
 
-Here is an example for an Nginx worker process with very few Nginx modules enabled:
+这里有一个例子，NGINX worker 进程开启的模块很少：
 
     # assuming the nginx worker pid is 4876
     $ ./ngx-phase-handlers -p 4876
@@ -1336,7 +1302,7 @@ Here is an example for an Nginx worker process with very few Nginx modules enabl
 
     22 microseconds elapsed in the probe handler.
 
-Here is another example for an Nginx worker process with quite a few Nginx modules enabled:
+另外有一个开启了很多 NGINX 模块的 NGINX worker 进程的例子：
 
     $ ./ngx-phase-handlers -p 24980
     Tracing 24980 (/opt/nginx/sbin/nginx)...
@@ -1376,24 +1342,24 @@ Here is another example for an Nginx worker process with quite a few Nginx modul
 resolve-inlines
 ---------------
 
-This tool calls the `addr2line` utility to resolve the inlined function frames generated by those `sample-*` tools like [sample-bt](#sample-bt).
+这个工具调用 `addr2line` 来解决由那些 [sample-bt](#sample-bt)之类的 `sample-*` 工具集产生的内联函数。
 
-It accepts two command-line arguments, the `.bt` file and the executable file.
+它接受两个命令行参数， `.bt` 文件和可执行文件。
 
-For example,
+比如，
 
 ```
 resolve-inlines a.bt /path/to/nginx > new-a.bt
 ```
 
-Right now, inlined functions in PIC (Position-Indenpendent Code) are not yet supported but are technically feasiable. (Patches welcome!)
+PIC (Position-Indenpendent Code) 里面的内联函数现在还不支持，但技术上是可行的（欢迎贡献补丁！）。
 
 [Back to TOC](#table-of-contents)
 
 resolve-src-lines
 -----------------
 
-Similar to [resolve-inlines](#resolve-inlines) but expand function frames to both their function names and source line positions (i.e., source file names and source line numbers).
+类似 [resolve-inlines](#resolve-inlines) ,但是对它们的源代码文件名和源代码行数做了扩展。
 
 [Back to TOC](#table-of-contents)
 
@@ -1421,7 +1387,7 @@ Bugs and Patches
 
 Please submit bug reports, wishlists, or patches by
 
-1. creating a ticket on the [GitHub Issue Tracker](http://github.com/openresty/nginx-systemtap-toolkit/issues),
+1. creating a ticket on the [GitHub Issue Tracker](http://github.com/agentzh/nginx-systemtap-toolkit/issues),
 1. or posting to the [OpenResty community](http://wiki.nginx.org/HttpLuaModule#Community).
 
 [Back to TOC](#table-of-contents)
@@ -1443,7 +1409,7 @@ Copyright & License
 
 This module is licenced under the BSD license.
 
-Copyright (C) 2012-2016 by Yichun Zhang (agentzh) <agentzh@gmail.com>, CloudFlare Inc.
+Copyright (C) 2012-2013 by Yichun Zhang (agentzh) <agentzh@gmail.com>, CloudFlare Inc.
 
 All rights reserved.
 
@@ -1477,5 +1443,5 @@ See Also
 * You can find even more tools in the stap++ project: https://github.com/openresty/stapxx
 * SystemTap Wiki Home: http://sourceware.org/systemtap/wiki
 * Nginx home: http://nginx.org
-* Perl Systemtap Toolkit: https://github.com/openresty/perl-systemtap-toolkit
+* Perl Systemtap Toolkit: https://github.com/agentzh/perl-systemtap-toolkit
 [Back to TOC](#table-of-contents)
